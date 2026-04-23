@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /// <summary>
@@ -342,6 +343,15 @@ public class UIBindDataManager
         bindings.targetName = panelInstance.name;
         //获取Prefab
         var prefabAsset = GetPrefabSourceRoot(panelInstance);
+        if (prefabAsset == null)
+        {
+            Debug.LogWarning(
+                $"[UIBindDataManager] 无法解析 Prefab Asset，跳过 FileID 修复: " +
+                $"panel={panelInstance.name}, " +
+                $"isPrefabInstance={PrefabUtility.IsPartOfPrefabInstance(panelInstance)}, " +
+                $"isPrefabAsset={PrefabUtility.IsPartOfPrefabAsset(panelInstance)}, " +
+                $"assetPath={AssetDatabase.GetAssetPath(panelInstance)}");
+        }
         //记录Prefab子对象的FileID与相对于Prefab的路径 以Dictionary形式存储
         Dictionary<long, string> prefabPathByFileID = new Dictionary<long, string>();
         Dictionary<string, long> prefabFileIDByPath = new Dictionary<string, long>();
@@ -486,7 +496,18 @@ public class UIBindDataManager
             return null;
 
         if (PrefabUtility.IsPartOfPrefabAsset(instanceObj))
-            return instanceObj.transform.root.gameObject;
+        {
+            string assetPath = AssetDatabase.GetAssetPath(instanceObj.transform.root.gameObject);
+            return string.IsNullOrEmpty(assetPath)
+                ? instanceObj.transform.root.gameObject
+                : AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+        }
+
+        var prefabStage = PrefabStageUtility.GetPrefabStage(instanceObj);
+        if (prefabStage != null && !string.IsNullOrEmpty(prefabStage.assetPath))
+        {
+            return AssetDatabase.LoadAssetAtPath<GameObject>(prefabStage.assetPath);
+        }
 
         if (!PrefabUtility.IsPartOfPrefabInstance(instanceObj))
         {
