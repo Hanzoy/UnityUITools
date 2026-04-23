@@ -482,8 +482,17 @@ public class UIBindDataManager
 
     public static GameObject GetPrefabSourceRoot(GameObject instanceObj)
     {
-        if (instanceObj == null || !PrefabUtility.IsPartOfPrefabInstance(instanceObj))
+        if (instanceObj == null)
             return null;
+
+        if (PrefabUtility.IsPartOfPrefabAsset(instanceObj))
+            return instanceObj.transform.root.gameObject;
+
+        if (!PrefabUtility.IsPartOfPrefabInstance(instanceObj))
+        {
+            GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(instanceObj);
+            return sourceObject != null ? sourceObject.transform.root.gameObject : null;
+        }
 
         GameObject instanceRoot = PrefabUtility.GetNearestPrefabInstanceRoot(instanceObj);
         GameObject prefabAsset = PrefabUtility.GetCorrespondingObjectFromSource(instanceRoot);
