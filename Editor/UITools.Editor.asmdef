@@ -1,0 +1,18 @@
+{
+  "name": "UITools.Editor",
+  "rootNamespace": "UITools",
+  "references": [
+    "UITools.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
