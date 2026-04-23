@@ -281,6 +281,48 @@ public class UIBindDataManager
         return fileID != 0;
     }
 
+    private static bool TryRepairBindingFileID(
+        UIBindItem bindItem,
+        GameObject panelInstance,
+        Dictionary<string, long> prefabFileIDByPath,
+        Dictionary<long, GameObject> instanceObjectByFileID)
+    {
+        if (bindItem == null || bindItem.targetObjectFileID != 0 || panelInstance == null)
+            return false;
+
+        GameObject fallbackObject = EditorUtility.InstanceIDToObject(bindItem.targetInstanceID) as GameObject;
+        string fallbackPath = NormalizeBindingRelativePath(bindItem.targetObjectRelativePath);
+
+        if (fallbackObject == null)
+        {
+            fallbackObject = fallbackPath == "[ROOT]"
+                ? panelInstance
+                : panelInstance.transform.Find(fallbackPath)?.gameObject;
+        }
+
+        if (fallbackObject == null && !string.IsNullOrEmpty(bindItem.targetObjectFullPathInScene))
+        {
+            fallbackObject = GameObject.Find(bindItem.targetObjectFullPathInScene);
+        }
+
+        if (fallbackObject != null && TryGetPrefabSourceFileID(fallbackObject, out long fileID))
+        {
+            bindItem.targetObjectFileID = fileID;
+            instanceObjectByFileID[fileID] = fallbackObject;
+            Debug.Log($"[UIBindDataManager] 已修复绑定 FileID: {bindItem.variableName} -> {fileID}");
+            return true;
+        }
+
+        if (prefabFileIDByPath.TryGetValue(fallbackPath, out fileID))
+        {
+            bindItem.targetObjectFileID = fileID;
+            Debug.Log($"[UIBindDataManager] 已通过路径修复绑定 FileID: {bindItem.variableName} -> {fileID}");
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// 根据当前的实例更新绑定数据中记录的实例相关信息
     /// </summary>
@@ -339,6 +381,8 @@ public class UIBindDataManager
                     continue;
                 }
 
+                TryRepairBindingFileID(bindItem, panelInstance, prefabFileIDByPath, instanceObjectByFileID);
+
                 bool existsByFileID = bindItem.targetObjectFileID != 0 && prefabPathByFileID.ContainsKey(bindItem.targetObjectFileID);
                 bool existsByPath = prefabFileIDByPath.ContainsKey(NormalizeBindingRelativePath(bindItem.targetObjectRelativePath));
                 if (!existsByFileID && !existsByPath)
@@ -364,31 +408,7 @@ public class UIBindDataManager
             {
                 if (bindItem.targetObjectFileID == 0)
                 {
-                    GameObject fallbackObject = null;
-                    string fallbackPath = NormalizeBindingRelativePath(bindItem.targetObjectRelativePath);
-                    if (fallbackPath == "[ROOT]")
-                    {
-                        fallbackObject = panelInstance;
-                    }
-                    else
-                    {
-                        fallbackObject = panelInstance.transform.Find(fallbackPath)?.gameObject;
-                    }
-
-                    if (fallbackObject == null && !string.IsNullOrEmpty(bindItem.targetObjectFullPathInScene))
-                    {
-                        fallbackObject = GameObject.Find(bindItem.targetObjectFullPathInScene);
-                    }
-
-                    if (fallbackObject != null && TryGetPrefabSourceFileID(fallbackObject, out long fileID))
-                    {
-                        bindItem.targetObjectFileID = fileID;
-                        instanceObjectByFileID[fileID] = fallbackObject;
-                    }
-                    else if (prefabFileIDByPath.TryGetValue(fallbackPath, out fileID))
-                    {
-                        bindItem.targetObjectFileID = fileID;
-                    }
+                    TryRepairBindingFileID(bindItem, panelInstance, prefabFileIDByPath, instanceObjectByFileID);
                 }
 
                 if (bindItem.targetObjectFileID != 0 && instanceObjectByFileID.TryGetValue(bindItem.targetObjectFileID, out GameObject instanceObject))
