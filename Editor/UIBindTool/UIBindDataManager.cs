@@ -234,10 +234,11 @@ public class UIBindDataManager
                 return AssetDatabase.GetAssetPath(binding);
             }
         }
-        // 使用面板名称作为文件名，确保唯一性
-        string fileName = string.IsNullOrEmpty(bindingKey) ? targetPanel.name : bindingKey.Replace("SCENE:", "");
+        // 使用面板名称作为文件名，匹配仍然依赖GUID/场景路径保证稳定性
+        string fileName = string.IsNullOrEmpty(targetPanel.name) ? bindingKey.Replace("SCENE:", "") : targetPanel.name;
         string safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
-        return $"{GetBindDataFolder()}/{safeFileName}{BIND_DATA_EXTENSION}";
+        string assetPath = $"{GetBindDataFolder()}/{safeFileName}{BIND_DATA_EXTENSION}";
+        return AssetDatabase.GenerateUniqueAssetPath(assetPath);
     }
 
     /// <summary>
@@ -261,7 +262,8 @@ public class UIBindDataManager
         // 使用面板名称作为文件名，确保唯一性
         string fileName = bindings.targetName;
         string safeFileName = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars()));
-        return $"{GetBindDataFolder()}/{safeFileName}{BIND_DATA_EXTENSION}";
+        string assetPath = $"{GetBindDataFolder()}/{safeFileName}{BIND_DATA_EXTENSION}";
+        return AssetDatabase.GenerateUniqueAssetPath(assetPath);
     }
 
     private static string NormalizeBindingRelativePath(string relativePath)
