@@ -45,18 +45,7 @@ public class UIBindItem
         if (targetInstance != null)
         {
             targetInstanceID = targetInstance.GetInstanceID();
-            if (targetPrefab != null)
-            {
-                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(targetPrefab, out string guid, out targetObjectFileID);
-            }
-            if (targetObjectFileID == 0)
-            {
-                GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(targetInstance);
-                if (sourceObject != null)
-                {
-                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(sourceObject, out string guid, out targetObjectFileID);
-                }
-            }
+            targetObjectFileID = ResolvePrefabFileID(targetInstance, targetPrefab);
 
             // 优先使用相对路径，如果无法计算则使用绝对路径
             if (panelRoot != null)
@@ -92,6 +81,39 @@ public class UIBindItem
         accessModifier = access;
         variableName = varName;
         previousVariableName = ""; // 初始化为空
+    }
+
+    private static long ResolvePrefabFileID(GameObject targetInstance, GameObject targetPrefab)
+    {
+        if (TryGetLocalFileID(targetPrefab, out long fileID))
+            return fileID;
+
+        GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(targetInstance);
+        if (TryGetLocalFileID(sourceObject, out fileID))
+            return fileID;
+
+        Debug.LogWarning(
+            $"[UIBindItem] 无法获取 Prefab FileID: " +
+            $"targetInstance={targetInstance?.name}, " +
+            $"targetPrefab={targetPrefab?.name}, " +
+            $"targetPrefabPath={AssetDatabase.GetAssetPath(targetPrefab)}, " +
+            $"sourceObject={sourceObject?.name}, " +
+            $"sourceObjectPath={AssetDatabase.GetAssetPath(sourceObject)}");
+        return 0;
+    }
+
+    private static bool TryGetLocalFileID(GameObject obj, out long fileID)
+    {
+        fileID = 0;
+        if (obj == null)
+            return false;
+
+        if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(obj, out string guid, out fileID) && fileID != 0)
+            return true;
+
+        GlobalObjectId globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(obj);
+        fileID = (long)globalObjectId.targetObjectId;
+        return fileID != 0;
     }
 
     /// <summary>
