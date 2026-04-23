@@ -1,7 +1,7 @@
 {
   "name": "com.hanzoy.uitools",
   "displayName": "UnityUITools",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "unity": "2022.3",
   "description": "Unity editor tool for UI binding data management and script generation.",
   "keywords": [
