@@ -128,7 +128,7 @@ public class UIBindToolTreeView : TreeView
         if (objectBindings == null || objectBindings.Count == 0)
             return;
 
-        List<UIBindItem> validBindings = objectBindings.FindAll(b => b.IsValidTarget());
+        List<UIBindItem> validBindings = objectBindings.FindAll(b => b.IsValidTarget(item.boundObject));
         if (validBindings.Count == 0)
             return;
 

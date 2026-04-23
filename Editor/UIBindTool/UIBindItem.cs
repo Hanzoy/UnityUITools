@@ -168,6 +168,18 @@ public class UIBindItem
         return componentTypeName == typeof(GameObject).FullName;
     }
 
+    public bool MatchesTargetObject(GameObject targetObject)
+    {
+        if (targetObject == null)
+            return false;
+
+        GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(targetObject) ?? targetObject;
+        if (targetObjectFileID != 0 && TryGetLocalFileID(sourceObject, out long fileID))
+            return targetObjectFileID == fileID;
+
+        return GetTargetObject() == targetObject;
+    }
+
     /// <summary>
     /// 验证目标对象是否仍然有效
     /// </summary>
@@ -175,6 +187,11 @@ public class UIBindItem
     {
         var target = GetTargetObject();
         return target != null && target.name == targetObjectName;
+    }
+
+    public bool IsValidTarget(GameObject targetObject)
+    {
+        return MatchesTargetObject(targetObject);
     }
 
     /// <summary>

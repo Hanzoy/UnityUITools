@@ -66,7 +66,7 @@ public class UIPanelBindings : ScriptableObject
         if (targetObject == null)
             return new List<UIBindItem>();
 
-        return bindings.FindAll(b => b != null && b.GetTargetObject() == targetObject);
+        return bindings.FindAll(b => b != null && b.MatchesTargetObject(targetObject));
     }
 
     /// <summary>
@@ -80,7 +80,7 @@ public class UIPanelBindings : ScriptableObject
         // 查找索引
         int index = bindings.FindIndex(b =>
             b != null &&
-            b.GetTargetObject() == binding.GetTargetObject() &&
+            b.MatchesTargetObject(binding.GetTargetObject()) &&
             b.componentTypeName == binding.componentTypeName);
 
         if (index >= 0)
@@ -127,7 +127,7 @@ public class UIPanelBindings : ScriptableObject
 
         return bindings.Exists(b =>
             b != null &&
-            b.GetTargetObject() == targetObject &&
+            b.MatchesTargetObject(targetObject) &&
             b.componentTypeName == componentTypeName);
     }
 
