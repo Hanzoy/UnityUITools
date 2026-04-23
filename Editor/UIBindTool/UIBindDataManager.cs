@@ -393,8 +393,8 @@ public class UIBindDataManager
 
                 if (bindItem.targetObjectFileID != 0 && instanceObjectByFileID.TryGetValue(bindItem.targetObjectFileID, out GameObject instanceObject))
                 {
-                    string relativePath = NormalizeBindingRelativePath(UIPanelBindings.GetGameObjectRelativePath(panelInstance, instanceObject));
-                    bindItem.targetObjectRelativePath = relativePath;
+                    string instanceRelativePath = NormalizeBindingRelativePath(UIPanelBindings.GetGameObjectRelativePath(panelInstance, instanceObject));
+                    bindItem.targetObjectRelativePath = instanceRelativePath;
                     bindItem.targetObjectFullPathInScene = UIPanelBindings.GetGameObjectFullPath(instanceObject);
                     bindItem.targetObjectName = instanceObject.name;
                     bindItem.targetInstanceID = instanceObject.GetInstanceID();
