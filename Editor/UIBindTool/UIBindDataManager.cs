@@ -263,6 +263,24 @@ public class UIBindDataManager
         return $"{GetBindDataFolder()}/{safeFileName}{BIND_DATA_EXTENSION}";
     }
 
+    private static string NormalizeBindingRelativePath(string relativePath)
+    {
+        return string.IsNullOrEmpty(relativePath) || relativePath == "[ROOT]" ? "[ROOT]" : relativePath;
+    }
+
+    private static bool TryGetPrefabSourceFileID(GameObject obj, out long fileID)
+    {
+        fileID = 0;
+        if (obj == null)
+            return false;
+
+        GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(obj) ?? obj;
+        if (!AssetDatabase.TryGetGUIDAndLocalFileIdentifier(sourceObject, out string guid, out fileID))
+            return false;
+
+        return fileID != 0;
+    }
+
     /// <summary>
     /// 根据当前的实例更新绑定数据中记录的实例相关信息
     /// </summary>
@@ -272,6 +290,9 @@ public class UIBindDataManager
     {
         if (bindings == null || panelInstance == null)
             return;
+        if (bindings.bindings == null)
+            bindings.bindings = new List<UIBindItem>();
+
         //更新实例数据
         bindings.targetPrefabGUID = GetPanelBindingKey(panelInstance);
         bindings.targetInstanceID = panelInstance.GetInstanceID();
@@ -280,45 +301,126 @@ public class UIBindDataManager
         //获取Prefab
         var prefabAsset = GetPrefabSourceRoot(panelInstance);
         //记录Prefab子对象的FileID与相对于Prefab的路径 以Dictionary形式存储
-        Dictionary<long, string> prefabObjectData = new Dictionary<long, string>();
-        long rootFileID = 0;
+        Dictionary<long, string> prefabPathByFileID = new Dictionary<long, string>();
+        Dictionary<string, long> prefabFileIDByPath = new Dictionary<string, long>();
+        Dictionary<long, GameObject> instanceObjectByFileID = new Dictionary<long, GameObject>();
         if (prefabAsset != null)
         {
             foreach (Transform child in prefabAsset.GetComponentsInChildren<Transform>(true))
             {
                 AssetDatabase.TryGetGUIDAndLocalFileIdentifier(child.gameObject, out string guid, out long fileID);
-                string relativePath = UIPanelBindings.GetGameObjectRelativePath(prefabAsset, child.gameObject);
-                prefabObjectData[fileID] = relativePath;
+                if (fileID == 0)
+                    continue;
+
+                string relativePath = NormalizeBindingRelativePath(UIPanelBindings.GetGameObjectRelativePath(prefabAsset, child.gameObject));
+                prefabPathByFileID[fileID] = relativePath;
+                prefabFileIDByPath[relativePath] = fileID;
             }
-            //包括Prefab根对象
-            AssetDatabase.TryGetGUIDAndLocalFileIdentifier(prefabAsset, out string rootGuid, out rootFileID);
-            prefabObjectData[rootFileID] = bindings.targetPathInScene;
+
+            foreach (Transform child in panelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (!TryGetPrefabSourceFileID(child.gameObject, out long fileID))
+                    continue;
+
+                instanceObjectByFileID[fileID] = child.gameObject;
+            }
         }
+
+        if (prefabAsset != null)
+        {
+            int removedCount = 0;
+            for (int i = bindings.bindings.Count - 1; i >= 0; i--)
+            {
+                var bindItem = bindings.bindings[i];
+                if (bindItem == null)
+                {
+                    bindings.bindings.RemoveAt(i);
+                    removedCount++;
+                    continue;
+                }
+
+                bool existsByFileID = bindItem.targetObjectFileID != 0 && prefabPathByFileID.ContainsKey(bindItem.targetObjectFileID);
+                bool existsByPath = prefabFileIDByPath.ContainsKey(NormalizeBindingRelativePath(bindItem.targetObjectRelativePath));
+                if (!existsByFileID && !existsByPath)
+                {
+                    bindings.bindings.RemoveAt(i);
+                    removedCount++;
+                }
+            }
+
+            if (removedCount > 0)
+            {
+                Debug.Log($"[UIBindDataManager] 已移除 {removedCount} 条目标节点不存在的绑定数据: {bindings.targetName}");
+            }
+        }
+
         //更新绑定数据
         foreach (var bindItem in bindings.bindings)
         {
             if (bindItem == null)
                 continue;
 
-            if (prefabAsset != null && prefabObjectData.TryGetValue(bindItem.targetObjectFileID, out string path))
+            if (prefabAsset != null)
             {
-                bindItem.targetObjectFullPathInScene = bindings.targetPathInScene;
-                if (bindItem.targetObjectFileID != rootFileID)
+                if (bindItem.targetObjectFileID == 0)
                 {
-                    bindItem.targetObjectRelativePath = path;
-                    bindItem.targetObjectFullPathInScene += (string.IsNullOrEmpty(path) ? "" : "/" + path);
-                }
-                else
-                {
-                    bindItem.targetObjectRelativePath = "[ROOT]";
+                    GameObject fallbackObject = null;
+                    string fallbackPath = NormalizeBindingRelativePath(bindItem.targetObjectRelativePath);
+                    if (fallbackPath == "[ROOT]")
+                    {
+                        fallbackObject = panelInstance;
+                    }
+                    else
+                    {
+                        fallbackObject = panelInstance.transform.Find(fallbackPath)?.gameObject;
+                    }
+
+                    if (fallbackObject == null && !string.IsNullOrEmpty(bindItem.targetObjectFullPathInScene))
+                    {
+                        fallbackObject = GameObject.Find(bindItem.targetObjectFullPathInScene);
+                    }
+
+                    if (fallbackObject != null && TryGetPrefabSourceFileID(fallbackObject, out long fileID))
+                    {
+                        bindItem.targetObjectFileID = fileID;
+                        instanceObjectByFileID[fileID] = fallbackObject;
+                    }
+                    else if (prefabFileIDByPath.TryGetValue(fallbackPath, out fileID))
+                    {
+                        bindItem.targetObjectFileID = fileID;
+                    }
                 }
 
-                string objectName = string.IsNullOrEmpty(path)
-                    ? panelInstance.name
-                    : path.Substring(path.LastIndexOf('/') + 1);
-                bindItem.targetObjectName = objectName;
-                bindItem.targetInstanceID = GameObject.Find(bindItem.targetObjectFullPathInScene)?.GetInstanceID() ?? 0;
-                continue;
+                if (bindItem.targetObjectFileID != 0 && instanceObjectByFileID.TryGetValue(bindItem.targetObjectFileID, out GameObject instanceObject))
+                {
+                    string relativePath = NormalizeBindingRelativePath(UIPanelBindings.GetGameObjectRelativePath(panelInstance, instanceObject));
+                    bindItem.targetObjectRelativePath = relativePath;
+                    bindItem.targetObjectFullPathInScene = UIPanelBindings.GetGameObjectFullPath(instanceObject);
+                    bindItem.targetObjectName = instanceObject.name;
+                    bindItem.targetInstanceID = instanceObject.GetInstanceID();
+                    continue;
+                }
+
+                if (bindItem.targetObjectFileID != 0 && prefabPathByFileID.TryGetValue(bindItem.targetObjectFileID, out string path))
+                {
+                    bindItem.targetObjectFullPathInScene = bindings.targetPathInScene;
+                    if (path != "[ROOT]")
+                    {
+                        bindItem.targetObjectRelativePath = path;
+                        bindItem.targetObjectFullPathInScene += "/" + path;
+                    }
+                    else
+                    {
+                        bindItem.targetObjectRelativePath = "[ROOT]";
+                    }
+
+                    string objectName = path == "[ROOT]"
+                        ? panelInstance.name
+                        : path.Substring(path.LastIndexOf('/') + 1);
+                    bindItem.targetObjectName = objectName;
+                    bindItem.targetInstanceID = GameObject.Find(bindItem.targetObjectFullPathInScene)?.GetInstanceID() ?? 0;
+                    continue;
+                }
             }
 
             GameObject boundObject = bindItem.GetTargetObject();

@@ -45,7 +45,18 @@ public class UIBindItem
         if (targetInstance != null)
         {
             targetInstanceID = targetInstance.GetInstanceID();
-            AssetDatabase.TryGetGUIDAndLocalFileIdentifier(targetPrefab, out string guid, out targetObjectFileID);
+            if (targetPrefab != null)
+            {
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(targetPrefab, out string guid, out targetObjectFileID);
+            }
+            if (targetObjectFileID == 0)
+            {
+                GameObject sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(targetInstance);
+                if (sourceObject != null)
+                {
+                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(sourceObject, out string guid, out targetObjectFileID);
+                }
+            }
 
             // 优先使用相对路径，如果无法计算则使用绝对路径
             if (panelRoot != null)

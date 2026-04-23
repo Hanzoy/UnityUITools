@@ -170,12 +170,6 @@ public class UIBindToolWindow : EditorWindow
             EditorApplication.delayCall += Close;
             return;
         }
-        if (isPrefabTarget && bindTargetPrefab.transform.childCount != bindTarget.transform.childCount)
-        {
-            EditorUtility.DisplayDialog("错误", "确保当前Prefab实例与Prefab资源相同（也许你需要应用当前Prefab的修改）", "确定");
-            EditorApplication.delayCall += Close;
-            return;
-        }
         bindableObjects.Clear();
         GetBindableObjectsWithStructure(bindTargetPrefab,bindTarget,bindTargetPrefab);
         //获取Prefab的GUID
@@ -527,17 +521,10 @@ public class UIBindToolWindow : EditorWindow
         {
             bindableObjects.Add(new KeyValuePair<int, (GameObject,GameObject)>(depth - 1, (current,currentInPrefab)));
         }
-        if(current.transform.childCount != currentInPrefab.transform.childCount)
-        {
-            EditorUtility.DisplayDialog("错误", "确保当前Prefab实例与Prefab资源相同（也许你需要应用当前Prefab的修改）", "确定");
-            EditorApplication.delayCall += Close;
-            bindableObjects.Clear();
-            return;
-        }
         for (int i = 0; i < current.transform.childCount; i++)
         {
             GameObject child = current.transform.GetChild(i).gameObject;
-            GameObject childPrefab = currentInPrefab.transform.GetChild(i).gameObject;
+            GameObject childPrefab = PrefabUtility.GetCorrespondingObjectFromSource(child) ?? child;
             // 如果是Prefab中的子Prefab则不展开
             GameObject tempPrefab = PrefabUtility.GetNearestPrefabInstanceRoot(child);
             if (tempPrefab != null && tempPrefab.name != rootPrefab.name && tempPrefab.name != child.name)
