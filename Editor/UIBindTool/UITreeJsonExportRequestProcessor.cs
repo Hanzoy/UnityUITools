@@ -16,6 +16,7 @@ public static class UITreeJsonExportRequestProcessor
 
     private const double POLL_INTERVAL_SECONDS = 2.0d;
     private const string STATUS_PENDING = "pending";
+    private const string STATUS_PROCESSING = "processing";
     private const string STATUS_COMPLETED = "completed";
     private const string STATUS_FAILED = "failed";
 
@@ -75,7 +76,13 @@ public static class UITreeJsonExportRequestProcessor
             return;
         }
 
-        request.status = STATUS_PENDING;
+        request.status = STATUS_PROCESSING;
+        request.startedAt = DateTimeOffset.Now.ToString("o");
+        request.completedAt = string.Empty;
+        request.resultPath = string.Empty;
+        request.errorMessage = string.Empty;
+        WriteRequest(requestPath, request);
+
         UITreeJsonExportResult result = UITreeJsonExporter.ExportFromCommandLine(
             request.prefabPath,
             request.prefabName,
@@ -89,8 +96,7 @@ public static class UITreeJsonExportRequestProcessor
 
         try
         {
-            File.WriteAllText(requestPath, JsonUtility.ToJson(request, true));
-            AssetDatabase.ImportAsset(requestPath);
+            WriteRequest(requestPath, request);
         }
         catch (Exception e)
         {
@@ -146,6 +152,12 @@ public static class UITreeJsonExportRequestProcessor
             return false;
         }
     }
+
+    private static void WriteRequest(string requestPath, UITreeJsonExportRequest request)
+    {
+        File.WriteAllText(requestPath, JsonUtility.ToJson(request, true));
+        AssetDatabase.ImportAsset(requestPath);
+    }
 }
 
 public class UITreeJsonExportRequestAssetPostprocessor : AssetPostprocessor
@@ -177,6 +189,7 @@ public class UITreeJsonExportRequest
     public string outputFolder;
     public string status = "pending";
     public string requestedAt;
+    public string startedAt;
     public string completedAt;
     public string resultPath;
     public string errorMessage;

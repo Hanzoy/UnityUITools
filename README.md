@@ -96,9 +96,9 @@ Unity.exe -batchmode -quit -projectPath "<ProjectPath>" -executeMethod UITreeJso
 }
 ```
 
-Unity 检测到该请求后会自动导出，并把请求状态改为 `completed` 或 `failed`。该方式不依赖 Auto Refresh，编辑器内置轮询会定期扫描请求目录。
+Unity 检测到该请求后会先把请求状态改为 `processing`，导出结束后再改为 `completed` 或 `failed`。该方式不依赖 Auto Refresh，编辑器内置轮询会定期扫描请求目录。
 
-如果请求长时间保持 `pending`，可以在 Windows 上将焦点切到 Unity：
+如果请求约 5 秒后仍保持 `pending`，可以在 Windows 上将焦点切到 Unity：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/FocusUnityEditor.ps1" -ProjectPath "<ProjectPath>" -TimeoutSeconds 10
