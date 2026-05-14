@@ -68,7 +68,7 @@ Example request:
 }
 ```
 
-When the open Unity editor imports this file, `UITreeJsonExportRequestProcessor` exports the UI tree and rewrites the request with:
+When the open Unity editor sees this file, `UITreeJsonExportRequestProcessor` exports the UI tree and rewrites the request with:
 
 - `status`: `completed` or `failed`.
 - `completedAt`: completion timestamp.
@@ -86,7 +86,7 @@ If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
 }
 ```
 
-Prefer `prefabPath` when possible. If Unity auto refresh is disabled, the user may need to focus Unity or refresh assets.
+Prefer `prefabPath` when possible. Request files are detected by a lightweight editor poller, so this does not require Unity Auto Refresh to be enabled. If Unity is compiling, paused, or not running editor updates, wait for the editor to become responsive.
 
 ## Output Schema
 

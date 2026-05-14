@@ -96,7 +96,7 @@ Unity.exe -batchmode -quit -projectPath "<ProjectPath>" -executeMethod UITreeJso
 }
 ```
 
-Unity 导入该请求后会自动导出，并把请求状态改为 `completed` 或 `failed`。
+Unity 检测到该请求后会自动导出，并把请求状态改为 `completed` 或 `failed`。该方式不依赖 Auto Refresh，编辑器内置轮询会定期扫描请求目录。
 
 Agent 调用规范见包根目录 `AGENTS.md`。
 

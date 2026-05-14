@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.IO;
 using UnityEditor;
@@ -13,14 +14,18 @@ public static class UITreeJsonExportRequestProcessor
     public const string REQUEST_FOLDER = "Assets/UITreeJsonRequests";
     public const string REQUEST_SUFFIX = ".uitree-export.json";
 
+    private const double POLL_INTERVAL_SECONDS = 2.0d;
     private const string STATUS_PENDING = "pending";
     private const string STATUS_COMPLETED = "completed";
     private const string STATUS_FAILED = "failed";
 
     private static bool s_IsProcessingScheduled;
+    private static double s_NextPollTime;
 
     static UITreeJsonExportRequestProcessor()
     {
+        EditorApplication.update -= PollPendingRequests;
+        EditorApplication.update += PollPendingRequests;
         ScheduleProcessPendingRequests();
     }
 
@@ -104,6 +109,43 @@ public static class UITreeJsonExportRequestProcessor
                assetPath.StartsWith(REQUEST_FOLDER + "/", StringComparison.OrdinalIgnoreCase) &&
                assetPath.EndsWith(REQUEST_SUFFIX, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static void PollPendingRequests()
+    {
+        if (EditorApplication.timeSinceStartup < s_NextPollTime)
+            return;
+
+        s_NextPollTime = EditorApplication.timeSinceStartup + POLL_INTERVAL_SECONDS;
+        if (!Directory.Exists(REQUEST_FOLDER))
+            return;
+
+        string[] requestPaths = Directory.GetFiles(REQUEST_FOLDER, "*" + REQUEST_SUFFIX, SearchOption.TopDirectoryOnly);
+        foreach (string requestPath in requestPaths)
+        {
+            string normalizedPath = requestPath.Replace("\\", "/");
+            if (IsPendingRequestFile(normalizedPath))
+            {
+                ScheduleProcessPendingRequests();
+                return;
+            }
+        }
+    }
+
+    private static bool IsPendingRequestFile(string requestPath)
+    {
+        try
+        {
+            string json = File.ReadAllText(requestPath);
+            var request = JsonUtility.FromJson<UITreeJsonExportRequest>(json);
+            return request != null &&
+                   (string.IsNullOrEmpty(request.status) ||
+                    string.Equals(request.status, STATUS_PENDING, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
 
 public class UITreeJsonExportRequestAssetPostprocessor : AssetPostprocessor
@@ -139,3 +181,4 @@ public class UITreeJsonExportRequest
     public string resultPath;
     public string errorMessage;
 }
+#endif
