@@ -43,6 +43,51 @@ Default output:
 Assets/UITreeJson/<PrefabName>.ui-tree.json
 ```
 
+### Open Editor Request File
+
+Use this when Unity is already open or BatchMode is blocked by licensing/project lock issues. Create a request file under:
+
+```text
+Assets/UITreeJsonRequests/
+```
+
+The file name must end with:
+
+```text
+.uitree-export.json
+```
+
+Example request:
+
+```json
+{
+  "version": 1,
+  "prefabPath": "Assets/UI/LoginPanel.prefab",
+  "outputPath": "Assets/UITreeJson/LoginPanel.ui-tree.json",
+  "status": "pending"
+}
+```
+
+When the open Unity editor imports this file, `UITreeJsonExportRequestProcessor` exports the UI tree and rewrites the request with:
+
+- `status`: `completed` or `failed`.
+- `completedAt`: completion timestamp.
+- `resultPath`: generated JSON path.
+- `errorMessage`: failure message, if any.
+
+If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
+
+```json
+{
+  "version": 1,
+  "prefabName": "LoginPanel",
+  "outputFolder": "Assets/UITreeJson",
+  "status": "pending"
+}
+```
+
+Prefer `prefabPath` when possible. If Unity auto refresh is disabled, the user may need to focus Unity or refresh assets.
+
 ## Output Schema
 
 The exported JSON is intentionally compact. It preserves hierarchy and component type names, not component internals.
@@ -81,6 +126,7 @@ Node fields:
 
 - Do not parse raw prefab YAML unless Unity is unavailable and the user accepts a partial fallback.
 - Do not create temporary editor scripts just to export UI tree JSON.
+- If BatchMode cannot start, create an open-editor request file instead of writing a temporary editor script.
 - Prefer `-uitreePrefabPath` over `-uitreePrefabName` when the path is known.
 - If `-uitreePrefabName` reports multiple matches, rerun with `-uitreePrefabPath`.
 - Do not edit generated `*.ui-tree.json` as a source of truth; regenerate it from the prefab.

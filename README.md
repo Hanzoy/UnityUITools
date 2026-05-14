@@ -83,6 +83,21 @@ UITreeJsonExporter.ExportPrefabToJson(
 Unity.exe -batchmode -quit -projectPath "<ProjectPath>" -executeMethod UITreeJsonExporter.ExportFromCommandLine -uitreePrefabPath "Assets/UI/LoginPanel.prefab" -uitreeOutputPath "Assets/UITreeJson/LoginPanel.ui-tree.json"
 ```
 
+如果 Unity 已经打开，或 BatchMode 被 licensing/project lock 阻塞，可以创建请求文件：
+
+`Assets/UITreeJsonRequests/LoginPanel.uitree-export.json`
+
+```json
+{
+  "version": 1,
+  "prefabPath": "Assets/UI/LoginPanel.prefab",
+  "outputPath": "Assets/UITreeJson/LoginPanel.ui-tree.json",
+  "status": "pending"
+}
+```
+
+Unity 导入该请求后会自动导出，并把请求状态改为 `completed` 或 `failed`。
+
 Agent 调用规范见包根目录 `AGENTS.md`。
 
 ### 4. 配置生成参数
