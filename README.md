@@ -13,7 +13,7 @@
 
 ### UITreeJsonExporter
 
-`UITreeJsonExporter` 用于把 Prefab UI 层级导出为精简 JSON，方便 Codex 或其他自动化工具读取节点层级和组件挂载信息。
+`UITreeJsonExporter` 用于把 Prefab UI 层级导出为精简 JSON，方便 Agent 或其他自动化工具读取节点层级和组件挂载信息。
 
 导出内容包括：
 
@@ -76,6 +76,14 @@ UITreeJsonExporter.ExportPrefabToJson(
     "Assets/UI/LoginPanel.prefab",
     "Assets/UITreeJson/LoginPanel.ui-tree.json");
 ```
+
+或者通过 Unity BatchMode 调用：
+
+```powershell
+Unity.exe -batchmode -quit -projectPath "<ProjectPath>" -executeMethod UITreeJsonExporter.ExportFromCommandLine -uitreePrefabPath "Assets/UI/LoginPanel.prefab" -uitreeOutputPath "Assets/UITreeJson/LoginPanel.ui-tree.json"
+```
+
+Agent 调用规范见包根目录 `AGENTS.md`。
 
 ### 4. 配置生成参数
 
