@@ -88,6 +88,18 @@ If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
 
 Prefer `prefabPath` when possible. Request files are detected by a lightweight editor poller, so this does not require Unity Auto Refresh to be enabled. If Unity is compiling, paused, or not running editor updates, wait for the editor to become responsive.
 
+If the request does not complete while Unity is in the background, focus the Unity editor and keep waiting. On Windows, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/FocusUnityEditor.ps1" -ProjectPath "D:\path\to\UnityProject" -TimeoutSeconds 10
+```
+
+When the package is resolved in `Library/PackageCache`, call the script from that resolved package path instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "Library/PackageCache/com.hanzoy.uitools@<hash>/Tools/FocusUnityEditor.ps1" -ProjectPath "D:\path\to\UnityProject" -TimeoutSeconds 10
+```
+
 ## Output Schema
 
 The exported JSON is intentionally compact. It preserves hierarchy and component type names, not component internals.
@@ -127,6 +139,7 @@ Node fields:
 - Do not parse raw prefab YAML unless Unity is unavailable and the user accepts a partial fallback.
 - Do not create temporary editor scripts just to export UI tree JSON.
 - If BatchMode cannot start, create an open-editor request file instead of writing a temporary editor script.
+- If an open-editor request stays pending, focus Unity with `Tools/FocusUnityEditor.ps1` and continue waiting.
 - Prefer `-uitreePrefabPath` over `-uitreePrefabName` when the path is known.
 - If `-uitreePrefabName` reports multiple matches, rerun with `-uitreePrefabPath`.
 - Do not edit generated `*.ui-tree.json` as a source of truth; regenerate it from the prefab.
