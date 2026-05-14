@@ -11,6 +11,23 @@
 - 编辑器脚本：`Editor/UIBindTool`
 - 默认模板：`Templates/UIPanelTemplate.txt`
 
+### UITreeJsonExporter
+
+`UITreeJsonExporter` 用于把 Prefab UI 层级导出为精简 JSON，方便 Codex 或其他自动化工具读取节点层级和组件挂载信息。
+
+导出内容包括：
+
+- `version`
+- `prefab`
+- `prefabGuid`
+- `generatedAt`
+- 节点 `name`
+- 节点相对 `path`
+- 节点 `fileId`
+- 节点 `active`
+- 节点上挂载的全部组件类型名
+- 子节点 `children`
+
 ## 使用方法
 
 ### 1. 安装包
@@ -41,6 +58,24 @@
 - 快捷键：`Alt + E`
 
 工具窗口标题为 `UI Bind Tool`。
+
+### 3.1 导出 UI 层级 JSON
+
+在 Project 窗口中选中一个 Prefab 资源，然后使用：
+
+- 菜单：`Assets/UITools/Export UI Tree Json`
+
+默认会导出到：
+
+`Assets/UITreeJson/<PrefabName>.ui-tree.json`
+
+也可以在编辑器脚本中直接调用：
+
+```csharp
+UITreeJsonExporter.ExportPrefabToJson(
+    "Assets/UI/LoginPanel.prefab",
+    "Assets/UITreeJson/LoginPanel.ui-tree.json");
+```
 
 ### 4. 配置生成参数
 
