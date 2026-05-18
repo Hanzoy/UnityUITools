@@ -89,7 +89,13 @@ If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
 
 Prefer `prefabPath` when possible. Request files are detected by a lightweight editor poller, so this does not require Unity Auto Refresh to be enabled. After creating a request, wait about 5 seconds for `status` to become `processing`. If it is still `pending`, focus Unity and continue waiting. If Unity is compiling, paused, or not running editor updates, wait for the editor to become responsive.
 
-If the request stays `pending` while Unity is in the background, focus the Unity editor and keep waiting. On Windows, use:
+If the request stays `pending` while Unity is in the background, focus the Unity editor and keep waiting. On Windows, first try the inline command because it does not execute a `.ps1` file:
+
+```powershell
+powershell -NoProfile -Command "$shell = New-Object -ComObject WScript.Shell; if (-not $shell.AppActivate('Unity')) { exit 1 }"
+```
+
+If multiple Unity editors are open, or the inline command cannot find the right window, use the project-aware helper:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/FocusUnityEditor.ps1" -ProjectPath "D:\path\to\UnityProject" -TimeoutSeconds 10
