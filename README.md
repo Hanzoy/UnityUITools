@@ -85,7 +85,7 @@ Unity.exe -batchmode -quit -projectPath "<ProjectPath>" -executeMethod UITreeJso
 
 如果 Unity 已经打开，或 BatchMode 被 licensing/project lock 阻塞，可以创建请求文件：
 
-`Assets/UITreeJsonRequests/LoginPanel.uitree-export.json`
+`Assets/UIBindRequests/LoginPanel.uitree-export.json`
 
 ```json
 {
@@ -111,6 +111,104 @@ powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/Focu
 ```
 
 Agent 调用规范见包根目录 `AGENTS.md`。
+
+### 3.2 转换 UI 绑定规格 JSON
+
+`*.uibind.json` 是面向 Agent 和人工 review 的绑定意图文件，`UIPanelBindings.asset` 是 Unity 工具实际使用的绑定数据。
+
+示例：
+
+```json
+{
+  "version": 1,
+  "prefab": "Assets/UI/LoginPanel.prefab",
+  "panelName": "LoginPanel",
+  "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "bindings": [
+    {
+      "path": "Root/BtnLogin",
+      "fileId": 10002,
+      "component": "UnityEngine.UI.Button",
+      "name": "btnLogin",
+      "access": "Private"
+    }
+  ]
+}
+```
+
+JSON 转绑定数据：
+
+```csharp
+UIBindSpecConverter.ImportJsonToAsset(
+    "Assets/UIBindSpecs/LoginPanel.uibind.json",
+    "Assets/UIBindData/LoginPanel.asset");
+```
+
+绑定数据转 JSON：
+
+```csharp
+UIBindSpecConverter.ExportAssetToJson(
+    "Assets/UIBindData/LoginPanel.asset",
+    "Assets/UIBindSpecs/LoginPanel.uibind.json");
+```
+
+菜单入口：
+
+- `Assets/UITools/Import UIBind Json`
+- `Assets/UITools/Export UIBind Json`
+
+如果 Unity 已打开，也可以创建转换请求文件：
+
+`Assets/UIBindRequests/LoginPanel.uibind-convert.json`
+
+```json
+{
+  "version": 1,
+  "action": "importJsonToAsset",
+  "specPath": "Assets/UIBindSpecs/LoginPanel.uibind.json",
+  "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "status": "pending"
+}
+```
+
+`action` 也可以是 `exportAssetToJson`，此时使用 `assetPath` 和 `outputPath`。
+
+生成绑定代码也可以创建请求文件：
+
+`Assets/UIBindRequests/LoginPanel.uibind-generate.json`
+
+```json
+{
+  "version": 1,
+  "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "registerAutoBinder": true,
+  "status": "pending"
+}
+```
+
+成功后请求会写回 `bindingScriptPath`、`mainScriptPath` 和 `mainScriptClassName`。
+
+### 3.3 Agent 使用工具绑定 UI 的整体链路
+
+当用户要求 Agent 使用工具完成 UI 绑定时，推荐流程是：
+
+```text
+Prefab
+  -> 导出 *.ui-tree.json
+  -> Agent 读取 UI 树并创建/更新 *.uibind.json
+  -> 导入为 UIPanelBindings.asset
+  -> 使用现有 UIBindTool 生成 *.Bind.cs / 主逻辑脚本 / 字段引用
+  -> 验证生成结果
+```
+
+职责划分：
+
+- `*.ui-tree.json`：Prefab 结构快照，只读，随 Prefab 变化重新导出。
+- `*.uibind.json`：绑定意图文件，供 Agent 和人工 review 修改。
+- `UIPanelBindings.asset`：Unity 内部绑定数据，由转换工具生成，不建议手改。
+- `*.Bind.cs`：代码生成结果，由现有绑定生成器更新。
+
+Agent 绑定时应优先编辑 `*.uibind.json`，再通过 `UIBindSpecConverter` 同步到 `.asset`，不要直接修改 `.asset`。
 
 ### 4. 配置生成参数
 

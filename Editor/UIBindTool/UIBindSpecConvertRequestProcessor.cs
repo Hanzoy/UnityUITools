@@ -5,16 +5,17 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Processes file-based UI tree export requests inside an already-open Unity editor.
-/// Agents can create request files without launching Unity batchmode or adding temporary editor scripts.
+/// Processes file-based *.uibind.json conversion requests inside an already-open Unity editor.
 /// </summary>
 [InitializeOnLoad]
-public static class UITreeJsonExportRequestProcessor
+public static class UIBindSpecConvertRequestProcessor
 {
     public const string REQUEST_FOLDER = "Assets/UIBindRequests";
-    public const string REQUEST_SUFFIX = ".uitree-export.json";
+    public const string REQUEST_SUFFIX = ".uibind-convert.json";
 
     private const double POLL_INTERVAL_SECONDS = 2.0d;
+    private const string ACTION_IMPORT = "importJsonToAsset";
+    private const string ACTION_EXPORT = "exportAssetToJson";
     private const string STATUS_PENDING = "pending";
     private const string STATUS_PROCESSING = "processing";
     private const string STATUS_COMPLETED = "completed";
@@ -23,7 +24,7 @@ public static class UITreeJsonExportRequestProcessor
     private static bool s_IsProcessingScheduled;
     private static double s_NextPollTime;
 
-    static UITreeJsonExportRequestProcessor()
+    static UIBindSpecConvertRequestProcessor()
     {
         EditorApplication.update -= PollPendingRequests;
         EditorApplication.update += PollPendingRequests;
@@ -53,17 +54,23 @@ public static class UITreeJsonExportRequestProcessor
         EditorApplication.delayCall += ProcessPendingRequests;
     }
 
+    public static bool IsRequestPath(string assetPath)
+    {
+        return !string.IsNullOrEmpty(assetPath) &&
+               assetPath.StartsWith(REQUEST_FOLDER + "/", StringComparison.OrdinalIgnoreCase) &&
+               assetPath.EndsWith(REQUEST_SUFFIX, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void ProcessRequest(string requestPath)
     {
-        UITreeJsonExportRequest request;
+        UIBindSpecConvertRequest request;
         try
         {
-            string json = File.ReadAllText(requestPath);
-            request = JsonUtility.FromJson<UITreeJsonExportRequest>(json);
+            request = JsonUtility.FromJson<UIBindSpecConvertRequest>(File.ReadAllText(requestPath));
         }
         catch (Exception e)
         {
-            Debug.LogError($"[UITreeJsonExportRequestProcessor] Failed to read request: {requestPath}. {e.Message}");
+            Debug.LogError($"[UIBindSpecConvertRequestProcessor] Failed to read request: {requestPath}. {e.Message}");
             return;
         }
 
@@ -83,37 +90,35 @@ public static class UITreeJsonExportRequestProcessor
         request.errorMessage = string.Empty;
         WriteRequest(requestPath, request);
 
-        UITreeJsonExportResult result = UITreeJsonExporter.ExportFromCommandLine(
-            request.prefabPath,
-            request.prefabName,
-            request.outputPath,
-            request.outputFolder);
+        UIBindSpecConvertResult result;
+        if (string.Equals(request.action, ACTION_EXPORT, StringComparison.OrdinalIgnoreCase))
+        {
+            result = UIBindSpecConverter.ExportAssetToJson(request.assetPath, request.outputPath);
+            request.resultPath = result.specPath;
+        }
+        else if (string.Equals(request.action, ACTION_IMPORT, StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(request.action))
+        {
+            result = UIBindSpecConverter.ImportJsonToAsset(request.specPath, request.assetPath);
+            request.resultPath = result.assetPath;
+        }
+        else
+        {
+            result = new UIBindSpecConvertResult
+            {
+                success = false,
+                errorMessage = $"Unsupported action: {request.action}"
+            };
+        }
 
         request.completedAt = DateTimeOffset.Now.ToString("o");
-        request.resultPath = result.jsonPath;
         request.errorMessage = result.errorMessage;
         request.status = result.success ? STATUS_COMPLETED : STATUS_FAILED;
-
-        try
-        {
-            WriteRequest(requestPath, request);
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[UITreeJsonExportRequestProcessor] Failed to write request result: {requestPath}. {e.Message}");
-        }
+        WriteRequest(requestPath, request);
 
         if (result.success)
-            Debug.Log($"[UITreeJsonExportRequestProcessor] Exported UI tree json: {result.jsonPath}");
+            Debug.Log($"[UIBindSpecConvertRequestProcessor] Convert succeeded: {request.resultPath}");
         else
-            Debug.LogError($"[UITreeJsonExportRequestProcessor] Export failed: {result.errorMessage}");
-    }
-
-    public static bool IsRequestPath(string assetPath)
-    {
-        return !string.IsNullOrEmpty(assetPath) &&
-               assetPath.StartsWith(REQUEST_FOLDER + "/", StringComparison.OrdinalIgnoreCase) &&
-               assetPath.EndsWith(REQUEST_SUFFIX, StringComparison.OrdinalIgnoreCase);
+            Debug.LogError($"[UIBindSpecConvertRequestProcessor] Convert failed: {result.errorMessage}");
     }
 
     private static void PollPendingRequests()
@@ -128,8 +133,7 @@ public static class UITreeJsonExportRequestProcessor
         string[] requestPaths = Directory.GetFiles(REQUEST_FOLDER, "*" + REQUEST_SUFFIX, SearchOption.TopDirectoryOnly);
         foreach (string requestPath in requestPaths)
         {
-            string normalizedPath = requestPath.Replace("\\", "/");
-            if (IsPendingRequestFile(normalizedPath))
+            if (IsPendingRequestFile(requestPath.Replace("\\", "/")))
             {
                 ScheduleProcessPendingRequests();
                 return;
@@ -141,8 +145,7 @@ public static class UITreeJsonExportRequestProcessor
     {
         try
         {
-            string json = File.ReadAllText(requestPath);
-            var request = JsonUtility.FromJson<UITreeJsonExportRequest>(json);
+            var request = JsonUtility.FromJson<UIBindSpecConvertRequest>(File.ReadAllText(requestPath));
             return request != null &&
                    (string.IsNullOrEmpty(request.status) ||
                     string.Equals(request.status, STATUS_PENDING, StringComparison.OrdinalIgnoreCase));
@@ -153,14 +156,14 @@ public static class UITreeJsonExportRequestProcessor
         }
     }
 
-    private static void WriteRequest(string requestPath, UITreeJsonExportRequest request)
+    private static void WriteRequest(string requestPath, UIBindSpecConvertRequest request)
     {
         File.WriteAllText(requestPath, JsonUtility.ToJson(request, true));
         AssetDatabase.ImportAsset(requestPath);
     }
 }
 
-public class UITreeJsonExportRequestAssetPostprocessor : AssetPostprocessor
+public class UIBindSpecConvertRequestAssetPostprocessor : AssetPostprocessor
 {
     private static void OnPostprocessAllAssets(
         string[] importedAssets,
@@ -170,9 +173,9 @@ public class UITreeJsonExportRequestAssetPostprocessor : AssetPostprocessor
     {
         foreach (string assetPath in importedAssets)
         {
-            if (UITreeJsonExportRequestProcessor.IsRequestPath(assetPath))
+            if (UIBindSpecConvertRequestProcessor.IsRequestPath(assetPath))
             {
-                UITreeJsonExportRequestProcessor.ScheduleProcessPendingRequests();
+                UIBindSpecConvertRequestProcessor.ScheduleProcessPendingRequests();
                 return;
             }
         }
@@ -180,13 +183,13 @@ public class UITreeJsonExportRequestAssetPostprocessor : AssetPostprocessor
 }
 
 [Serializable]
-public class UITreeJsonExportRequest
+public class UIBindSpecConvertRequest
 {
     public int version = 1;
-    public string prefabPath;
-    public string prefabName;
+    public string action = "importJsonToAsset";
+    public string specPath;
+    public string assetPath;
     public string outputPath;
-    public string outputFolder;
     public string status = "pending";
     public string requestedAt;
     public string startedAt;
