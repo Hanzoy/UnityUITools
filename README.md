@@ -101,10 +101,10 @@ Unity 检测到该请求后会先把请求状态改为 `processing`，导出结�
 如果请求约 5 秒后仍保持 `pending`，可以在 Windows 上将焦点切到 Unity：
 
 ```powershell
-powershell -NoProfile -Command "$shell = New-Object -ComObject WScript.Shell; if (-not $shell.AppActivate('Unity')) { exit 1 }"
+Packages/com.hanzoy.uitools/Tools/UnityFocus/bin/win-x64/UnityFocus.exe --projectPath "<ProjectPath>" --timeoutSeconds 10
 ```
 
-如果存在多个 Unity 编辑器，使用按项目路径匹配的脚本：
+该工具只负责聚焦 Unity 编辑器窗口，不执行任意命令。如果需要 fallback，可以使用 PowerShell 脚本：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/FocusUnityEditor.ps1" -ProjectPath "<ProjectPath>" -TimeoutSeconds 10

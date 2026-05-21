@@ -89,19 +89,19 @@ If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
 
 Prefer `prefabPath` when possible. Request files are detected by a lightweight editor poller, so this does not require Unity Auto Refresh to be enabled. After creating a request, wait about 5 seconds for `status` to become `processing`. If it is still `pending`, focus Unity and continue waiting. If Unity is compiling, paused, or not running editor updates, wait for the editor to become responsive.
 
-If the request stays `pending` while Unity is in the background, focus the Unity editor and keep waiting. On Windows, first try the inline command because it does not execute a `.ps1` file:
+If the request stays `pending` while Unity is in the background, focus the Unity editor and keep waiting. On Windows, use the fixed-purpose helper executable:
 
 ```powershell
-powershell -NoProfile -Command "$shell = New-Object -ComObject WScript.Shell; if (-not $shell.AppActivate('Unity')) { exit 1 }"
+Packages/com.hanzoy.uitools/Tools/UnityFocus/bin/win-x64/UnityFocus.exe --projectPath "D:\path\to\UnityProject" --timeoutSeconds 10
 ```
 
-If multiple Unity editors are open, or the inline command cannot find the right window, use the project-aware helper:
+When the package is resolved in `Library/PackageCache`, call the executable from that resolved package path instead:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "Packages/com.hanzoy.uitools/Tools/FocusUnityEditor.ps1" -ProjectPath "D:\path\to\UnityProject" -TimeoutSeconds 10
+Library/PackageCache/com.hanzoy.uitools@<hash>/Tools/UnityFocus/bin/win-x64/UnityFocus.exe --projectPath "D:\path\to\UnityProject" --timeoutSeconds 10
 ```
 
-When the package is resolved in `Library/PackageCache`, call the script from that resolved package path instead:
+The executable is fixed-purpose and only focuses a Unity editor window; it does not execute arbitrary commands. The PowerShell helper remains available as a fallback:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "Library/PackageCache/com.hanzoy.uitools@<hash>/Tools/FocusUnityEditor.ps1" -ProjectPath "D:\path\to\UnityProject" -TimeoutSeconds 10
@@ -146,7 +146,7 @@ Node fields:
 - Do not parse raw prefab YAML unless Unity is unavailable and the user accepts a partial fallback.
 - Do not create temporary editor scripts just to export UI tree JSON.
 - If BatchMode cannot start, create an open-editor request file instead of writing a temporary editor script.
-- If an open-editor request is still `pending` after about 5 seconds, focus Unity with `Tools/FocusUnityEditor.ps1` and continue waiting.
+- If an open-editor request is still `pending` after about 5 seconds, focus Unity with `Tools/UnityFocus/bin/win-x64/UnityFocus.exe` and continue waiting.
 - If an open-editor request is `processing`, Unity has already seen it; keep waiting for `completed` or `failed`.
 - Prefer `-uitreePrefabPath` over `-uitreePrefabName` when the path is known.
 - If `-uitreePrefabName` reports multiple matches, rerun with `-uitreePrefabPath`.
