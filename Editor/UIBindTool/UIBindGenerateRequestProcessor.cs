@@ -130,6 +130,7 @@ public static class UIBindGenerateRequestProcessor
         }
 
         EnsureSettingsData();
+        RefreshBindingAssetTarget(bindings);
 
         GenerationResult generation = UIBindScriptGenerator.GenerateScripts(bindings);
         result.success = generation.success;
@@ -154,6 +155,44 @@ public static class UIBindGenerateRequestProcessor
 
         AssetDatabase.Refresh();
         return result;
+    }
+
+    private static void RefreshBindingAssetTarget(UIPanelBindings bindings)
+    {
+        GameObject target = ResolveBindingTarget(bindings);
+        if (target == null)
+            return;
+
+        UIBindDataManager.UpdateBindingInstanceData(bindings, target);
+    }
+
+    private static GameObject ResolveBindingTarget(UIPanelBindings bindings)
+    {
+        if (bindings == null)
+            return null;
+
+        if (bindings.targetInstanceID != 0)
+        {
+            GameObject instanceObject = EditorUtility.InstanceIDToObject(bindings.targetInstanceID) as GameObject;
+            if (instanceObject != null)
+                return instanceObject;
+        }
+
+        if (!string.IsNullOrEmpty(bindings.targetPathInScene))
+        {
+            GameObject sceneObject = GameObject.Find(bindings.targetPathInScene);
+            if (sceneObject != null)
+                return sceneObject;
+        }
+
+        if (string.IsNullOrEmpty(bindings.targetPrefabGUID) || bindings.targetPrefabGUID.StartsWith("SCENE:"))
+            return null;
+
+        string assetPath = AssetDatabase.GUIDToAssetPath(bindings.targetPrefabGUID);
+        if (string.IsNullOrEmpty(assetPath))
+            return null;
+
+        return AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
     }
 
     private static void EnsureSettingsData()

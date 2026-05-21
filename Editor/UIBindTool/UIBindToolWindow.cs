@@ -35,6 +35,7 @@ public class UIBindToolWindow : EditorWindow
     private string[] m_SettingsNames = new string[0]; // 设置名称数组
     private Vector2 m_SettingsScrollPosition = Vector2.zero; // 设置界面滚动位置
     private static UIBindToolSettingsData s_SettingsData; // 设置数据
+    private bool m_IsRefreshScheduled;
 
     // 组件前缀配置相关
     private string m_NewComponentType = ""; // 新组件类型输入
@@ -130,6 +131,8 @@ public class UIBindToolWindow : EditorWindow
 
         // 注册撤销/重做事件监听
         Undo.undoRedoPerformed += OnUndoRedoPerformed;
+        EditorApplication.hierarchyChanged += ScheduleRefreshPanelData;
+        EditorApplication.projectChanged += ScheduleRefreshPanelData;
         // Debug.Log("[UIBindToolWindow] 撤销/重做系统已初始化");
     }
 
@@ -137,11 +140,43 @@ public class UIBindToolWindow : EditorWindow
     {
         // 注销撤销/重做事件监听
         Undo.undoRedoPerformed -= OnUndoRedoPerformed;
+        EditorApplication.hierarchyChanged -= ScheduleRefreshPanelData;
+        EditorApplication.projectChanged -= ScheduleRefreshPanelData;
 
         // 保存数据
         UIBindDataManager.SaveBindings(CurrentBindings);
 
         // Debug.Log("[UIBindToolWindow] 撤销/重做系统已关闭");
+    }
+
+    private void ScheduleRefreshPanelData()
+    {
+        if (m_IsRefreshScheduled || bindTarget == null)
+            return;
+
+        m_IsRefreshScheduled = true;
+        EditorApplication.delayCall += RefreshPanelData;
+    }
+
+    private void RefreshPanelData()
+    {
+        m_IsRefreshScheduled = false;
+        if (bindTarget == null)
+            return;
+
+        bindTargetPrefab = UIBindDataManager.GetPrefabSourceRoot(bindTarget) ?? bindTarget;
+        bindableObjects.Clear();
+        GetBindableObjectsWithStructure(bindTargetPrefab, bindTarget, bindTargetPrefab);
+
+        UpdateCurrentBindingsData();
+        if (CurrentBindings != null)
+            UIBindDataManager.UpdateBindingInstanceData(CurrentBindings, bindTarget);
+
+        if (m_IsPreviewMode)
+            m_PreviewFileName = GetPreviewFileName();
+
+        m_UIBindToolTreeView?.Reload();
+        Repaint();
     }
 
     /// <summary>
@@ -753,6 +788,8 @@ public class UIBindToolWindow : EditorWindow
     /// </summary>
     private void GenerateScripts()
     {
+        RefreshPanelData();
+
         if (CurrentBindings == null)
         {
             EditorUtility.DisplayDialog("错误", "未选择面板或没有绑定数据", "确定");
