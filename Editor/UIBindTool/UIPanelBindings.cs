@@ -71,21 +71,34 @@ public class UIPanelBindings : ScriptableObject
 
     /// <summary>
     /// 更新绑定项
+    /// </summary>
     /// <param name="binding">新的绑定数据</param>
     public void UpdateBinding(UIBindItem binding)
     {
-        if (binding == null || binding.GetTargetObject() == null)
-            return;
+        UpdateBinding(null, binding);
+    }
 
-        // 查找索引
-        int index = bindings.FindIndex(b =>
-            b != null &&
-            b.MatchesTargetObject(binding.GetTargetObject()) &&
-            b.componentTypeName == binding.componentTypeName);
+    /// <summary>
+    /// 更新绑定项
+    /// </summary>
+    /// <param name="originalBinding">原绑定数据，用于稳定定位已改名或实例信息过期的节点</param>
+    /// <param name="binding">新的绑定数据</param>
+    /// <returns>更新成功返回true</returns>
+    public bool UpdateBinding(UIBindItem originalBinding, UIBindItem binding)
+    {
+        if (binding == null)
+            return false;
+
+        if (bindings == null)
+            bindings = new List<UIBindItem>();
+
+        int index = FindBindingIndex(originalBinding, binding);
 
         if (index >= 0)
         {
             var oldBinding = bindings[index];
+            GameObject targetObject = binding.GetTargetObject() ?? oldBinding?.GetTargetObject();
+            Type componentType = binding.GetComponentType() ?? oldBinding?.GetComponentType();
 
             // 构建描述性操作名称
             string changedProperties = string.Empty;
@@ -99,7 +112,7 @@ public class UIPanelBindings : ScriptableObject
             }
 
             string operationName = string.IsNullOrEmpty(changedProperties)
-                ? UndoHelper.GetUndoName("Modify Binding", binding.GetTargetObject(), binding.GetComponentType())
+                ? UndoHelper.GetUndoName("Modify Binding", targetObject, componentType)
                 : $"Modify Binding: {changedProperties}";
 
             // 记录撤销操作
@@ -110,7 +123,37 @@ public class UIPanelBindings : ScriptableObject
             lastModifiedTime = DateTime.Now;
 
             // Debug.Log($"[UIPanelBindings] 更新绑定: {binding.variableName}");
+            return true;
         }
+
+        return false;
+    }
+
+    private int FindBindingIndex(UIBindItem originalBinding, UIBindItem binding)
+    {
+        if (originalBinding != null)
+        {
+            int referenceIndex = bindings.IndexOf(originalBinding);
+            if (referenceIndex >= 0)
+                return referenceIndex;
+
+            int originalIdentityIndex = bindings.FindIndex(b => b != null && b.MatchesBindingIdentity(originalBinding));
+            if (originalIdentityIndex >= 0)
+                return originalIdentityIndex;
+        }
+
+        GameObject targetObject = binding.GetTargetObject();
+        if (targetObject != null)
+        {
+            int targetIndex = bindings.FindIndex(b =>
+                b != null &&
+                b.MatchesTargetObject(targetObject) &&
+                b.componentTypeName == binding.componentTypeName);
+            if (targetIndex >= 0)
+                return targetIndex;
+        }
+
+        return bindings.FindIndex(b => b != null && b.MatchesBindingIdentity(binding));
     }
 
     /// <summary>

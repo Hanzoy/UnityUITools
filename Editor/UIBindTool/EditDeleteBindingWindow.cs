@@ -232,15 +232,20 @@ public class EditDeleteBindingWindow : EditorWindow
 
         // 检查变量名是否发生变化
         bool isVariableNameChanged = m_originalBinding.variableName != m_variableName;
+        string relativePath = UIPanelBindings.GetGameObjectRelativePath(m_rootPanel, m_targetObject);
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            relativePath = "[ROOT]";
+        }
 
         // 创建一个新的绑定项，保留所有原有信息，只更新需要修改的字段
         UIBindItem updatedBinding = new UIBindItem
         {
-            targetInstanceID = m_originalBinding.targetInstanceID,
+            targetInstanceID = m_targetObject.GetInstanceID(),
             targetObjectFileID = m_originalBinding.targetObjectFileID,
-            targetObjectFullPathInScene = m_originalBinding.targetObjectFullPathInScene,
-            targetObjectRelativePath = m_originalBinding.targetObjectRelativePath,
-            targetObjectName = m_originalBinding.targetObjectName,
+            targetObjectFullPathInScene = UIPanelBindings.GetGameObjectFullPath(m_targetObject),
+            targetObjectRelativePath = relativePath,
+            targetObjectName = m_targetObject.name,
             componentTypeName = m_originalBinding.componentTypeName,
             shortTypeName = m_originalBinding.shortTypeName,
             componentNamespace = m_originalBinding.componentNamespace,
@@ -252,7 +257,9 @@ public class EditDeleteBindingWindow : EditorWindow
         // 如果变量名发生变化，记录旧名称
         if (isVariableNameChanged)
         {
-            updatedBinding.previousVariableName = m_originalBinding.variableName;
+            updatedBinding.previousVariableName = string.IsNullOrEmpty(m_originalBinding.previousVariableName)
+                ? m_originalBinding.variableName
+                : m_originalBinding.previousVariableName;
             // Debug.Log($"[EditDeleteBindingWindow] 记录变量名变更: {m_originalBinding.variableName} → {m_variableName}");
         }
         else
@@ -262,13 +269,20 @@ public class EditDeleteBindingWindow : EditorWindow
         }
 
         // 使用UpdateBinding来更新（UIPanelBindings内会记录撤销操作）
-        bindings.UpdateBinding(updatedBinding);
+        bool updated = bindings.UpdateBinding(m_originalBinding, updatedBinding);
+        if (!updated)
+        {
+            EditorUtility.DisplayDialog("Error", "Failed to update binding!", "OK");
+            return;
+        }
 
         // 保存绑定数据
         UIBindDataManager.SaveBindings(bindings);
 
         // 标记场景为已修改（支持撤销）
         UndoHelper.MarkSceneDirty();
+
+        m_parentWindow?.Repaint();
 
         // 关闭窗口
         Close();
@@ -337,6 +351,10 @@ public class EditDeleteBindingWindow : EditorWindow
             if (binding == null)
                 continue;
 
+            // 修改已有绑定时，排除当前绑定本身，避免实例信息过期导致误判重复
+            if (IsOriginalBinding(binding))
+                continue;
+
             // 如果指定了要排除的对象，跳过该对象的绑定
             if (excludeObject != null && binding.GetTargetObject() == excludeObject)
                 continue;
@@ -347,6 +365,17 @@ public class EditDeleteBindingWindow : EditorWindow
         }
 
         return false;
+    }
+
+    private bool IsOriginalBinding(UIBindItem binding)
+    {
+        if (binding == null || m_originalBinding == null)
+            return false;
+
+        if (ReferenceEquals(binding, m_originalBinding))
+            return true;
+
+        return binding.MatchesBindingIdentity(m_originalBinding);
     }
 
     /// <summary>

@@ -181,6 +181,34 @@ public class UIBindItem
     }
 
     /// <summary>
+    /// 判断两个绑定是否指向同一目标对象和组件。
+    /// </summary>
+    public bool MatchesBindingIdentity(UIBindItem other)
+    {
+        if (other == null)
+            return false;
+
+        if (componentTypeName != other.componentTypeName)
+            return false;
+
+        if (targetObjectFileID != 0 && other.targetObjectFileID != 0)
+            return targetObjectFileID == other.targetObjectFileID;
+
+        if (targetInstanceID != 0 && other.targetInstanceID != 0)
+            return targetInstanceID == other.targetInstanceID;
+
+        if (!string.IsNullOrEmpty(targetObjectRelativePath) && !string.IsNullOrEmpty(other.targetObjectRelativePath))
+            return NormalizeBindingPath(targetObjectRelativePath) == NormalizeBindingPath(other.targetObjectRelativePath);
+
+        return false;
+    }
+
+    private static string NormalizeBindingPath(string path)
+    {
+        return string.IsNullOrEmpty(path) ? "[ROOT]" : path;
+    }
+
+    /// <summary>
     /// 验证目标对象是否仍然有效
     /// </summary>
     public bool IsValidTarget()
