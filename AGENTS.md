@@ -76,6 +76,8 @@ When the open Unity editor sees this file, `UITreeJsonExportRequestProcessor` ex
 - `resultPath`: generated JSON path.
 - `errorMessage`: failure message, if any.
 
+Request files are transient control files. After reading the terminal status and recording any error, delete the request file and its `.meta` sidecar. Do not leave completed or failed request files under `Assets/UIBindRequests/`.
+
 If `prefabPath` is unknown, `prefabName` and `outputFolder` are also supported:
 
 ```json
@@ -272,6 +274,8 @@ pending -> processing -> completed/failed
 
 If it stays `pending`, focus Unity with `Tools/UnityFocus/bin/win-x64/UnityFocus.exe` and continue waiting.
 
+After recording the result, delete the conversion request file and its `.meta` sidecar.
+
 ## Generate Binding Code
 
 Use this after `*.uibind.json` has been imported into `UIPanelBindings.asset`.
@@ -296,10 +300,13 @@ Example:
 {
   "version": 1,
   "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "settingsDataName": "Panel",
   "registerAutoBinder": true,
   "status": "pending"
 }
 ```
+
+`settingsDataName` is required and must exactly match a `settingsDataName` entry in `Assets/Settings/UIBindToolSettingsData.asset`. Resolve the intended setting from the target UI type and the setting item's paths/template. Never omit it and never use `lastSelectedSettingsDataName`: that field is only the interactive window's previous selection. A missing or unknown name fails generation and reports the available names instead of silently using the wrong setting.
 
 The request status follows:
 
@@ -315,6 +322,8 @@ On success, the request is rewritten with:
 
 If `registerAutoBinder` is `true`, the processor registers the same auto-bind task used by the editor window flow, so Unity can attach the generated main script and assign serialized fields after script reload.
 
+After recording the generation result, delete the generation request file and its `.meta` sidecar.
+
 ## End-to-End Binding Workflow
 
 Use this workflow when the user asks an agent to bind UI with this tool, generate UI bindings, add missing bindings, update existing bindings, or sync binding data.
@@ -327,6 +336,11 @@ Resolve these paths first:
 - UI tree output path, usually `Assets/UITreeJson/<PrefabName>.ui-tree.json`.
 - Binding spec path, usually `Assets/UIBindSpecs/<PrefabName>.uibind.json`.
 - Binding asset path, usually `Assets/UIBindData/<PrefabName>.asset`.
+- Generation settings name, for example `Panel` or `Popup`.
+
+Inspect `Assets/Settings/UIBindToolSettingsData.asset` and choose the exact `settingsDataItems[].settingsDataName` whose binding folder, script folders, template, namespace, and base class match the target UI type. Do not inherit the user's last interactive selection. Put newly created binding assets under that setting item's `bindDataFolder` unless the user or an existing spec requires another path.
+
+Before creating files, record whether the UI tree, binding spec, binding asset, and request files already exist. This distinction is required for safe cleanup; never delete a file that existed before this workflow.
 
 Prefer exact prefab paths over name search. If the user gives only a prefab name, search project assets and fail clearly if multiple prefabs match.
 
@@ -412,6 +426,7 @@ After the binding asset is updated, create a generate request:
 {
   "version": 1,
   "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "settingsDataName": "Panel",
   "registerAutoBinder": true,
   "status": "pending"
 }
@@ -436,6 +451,18 @@ Check:
 - Unity compilation succeeds, if accessible.
 - No requested binding was skipped due to missing path/component.
 
+### 8. Clean Up Workflow Intermediates
+
+After verification succeeds:
+
+- Delete every request file created for this run under `Assets/UIBindRequests/`, together with its `.meta` sidecar.
+- Delete a generated `*.ui-tree.json` snapshot, together with its `.meta`, when it was created only for this one-off binding run and the user did not ask to keep/export the UI tree.
+- Delete a generated `*.uibind.json`, together with its `.meta`, when it was created only for this one-off binding run and the user did not ask to keep the editable binding spec.
+- Keep pre-existing UI trees/specs, generated scripts, the prefab changes, and `UIPanelBindings.asset`. The binding asset is persistent tool data and may still be needed by `UIAutoBinder` after script reload.
+- If the workflow fails, still remove transient request files after recording `errorMessage`, but keep diagnostic tree/spec files until the failure is fixed or reported.
+
+Prefer Unity `AssetDatabase.DeleteAsset` when an available stable API can perform the cleanup. Otherwise delete both the asset and its `.meta` sidecar explicitly. Do not create a temporary editor script just for cleanup.
+
 When reporting back, include changed/generated file paths and any warnings.
 
 ## Agent Rules
@@ -451,3 +478,5 @@ When reporting back, include changed/generated file paths and any warnings.
 - Use `*.ui-tree.json` to understand UI hierarchy, then create or update `*.uibind.json` for binding intent.
 - Do not edit `UIPanelBindings.asset` directly; edit `*.uibind.json` and import it with `UIBindSpecConverter`.
 - Generate binding code through `.uibind-generate.json`; do not create temporary editor scripts for this step.
+- Every `.uibind-generate.json` request must include the exact `settingsDataName`; never rely on the interactive window's last-selected setting.
+- Clean up transient request files and newly created one-off JSON intermediates after verification; never delete pre-existing files.

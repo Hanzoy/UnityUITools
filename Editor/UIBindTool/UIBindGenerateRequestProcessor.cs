@@ -130,9 +130,16 @@ public static class UIBindGenerateRequestProcessor
         }
 
         EnsureSettingsData();
+        UIBindToolSettingsDataItem settingsItem = ResolveSettingsItem(request.settingsDataName, out string settingsError);
+        if (settingsItem == null)
+        {
+            result.errorMessage = settingsError;
+            return result;
+        }
+
         RefreshBindingAssetTarget(bindings);
 
-        GenerationResult generation = UIBindScriptGenerator.GenerateScripts(bindings);
+        GenerationResult generation = UIBindScriptGenerator.GenerateScripts(bindings, settingsItem);
         result.success = generation.success;
         result.bindingScriptPath = generation.bindingScriptPath;
         result.mainScriptPath = generation.mainScriptPath;
@@ -150,11 +157,40 @@ public static class UIBindGenerateRequestProcessor
                 generation.targetPanel,
                 generation.mainScriptClassName,
                 generation.mainScriptPath,
-                request.assetPath);
+                request.assetPath,
+                settingsItem.autoOpenGeneratedScripts);
         }
 
         AssetDatabase.Refresh();
         return result;
+    }
+
+    private static UIBindToolSettingsDataItem ResolveSettingsItem(
+        string settingsDataName,
+        out string errorMessage)
+    {
+        string[] availableNames = UIBindDataManager.GetAllSettingsDataNames();
+        string availableText = availableNames.Length > 0
+            ? string.Join(", ", availableNames)
+            : "<none>";
+
+        if (string.IsNullOrWhiteSpace(settingsDataName))
+        {
+            errorMessage =
+                $"settingsDataName is required for binding generation. Available settings: {availableText}";
+            return null;
+        }
+
+        UIBindToolSettingsDataItem settingsItem = UIBindDataManager.GetSettingsItemByName(settingsDataName);
+        if (settingsItem == null)
+        {
+            errorMessage =
+                $"Cannot find binding generation settings '{settingsDataName}'. Available settings: {availableText}";
+            return null;
+        }
+
+        errorMessage = string.Empty;
+        return settingsItem;
     }
 
     private static void RefreshBindingAssetTarget(UIPanelBindings bindings)
@@ -197,7 +233,7 @@ public static class UIBindGenerateRequestProcessor
 
     private static void EnsureSettingsData()
     {
-        if (UIBindDataManager.GetCurrentSettingsItem() != null)
+        if (UIBindDataManager.GetAllSettingsDataNames().Length > 0)
             return;
 
         if (!Directory.Exists(SETTINGS_FOLDER))
@@ -294,6 +330,7 @@ public class UIBindGenerateRequest
 {
     public int version = 1;
     public string assetPath;
+    public string settingsDataName;
     public bool registerAutoBinder = true;
     public string status = "pending";
     public string requestedAt;

@@ -26,6 +26,7 @@ public static class UIAutoBinder
         public string mainScriptPath;
         public string mainScriptClassName;
         public string bindingsDataPath;
+        public bool autoOpenGeneratedScripts;
     }
 
     /// <summary>
@@ -68,6 +69,25 @@ public static class UIAutoBinder
     /// <param name="bindingsDataPath">绑定数据路径</param>
     public static void RegisterBindingTask(GameObject targetPanel, string mainScriptClassName, string mainScriptPath, string bindingsDataPath)
     {
+        UIBindToolSettingsDataItem currentSettings = UIBindDataManager.GetCurrentSettingsItem();
+        RegisterBindingTask(
+            targetPanel,
+            mainScriptClassName,
+            mainScriptPath,
+            bindingsDataPath,
+            currentSettings != null && currentSettings.autoOpenGeneratedScripts);
+    }
+
+    /// <summary>
+    /// 注册绑定任务，并保存本次生成所选配置的自动打开脚本选项。
+    /// </summary>
+    public static void RegisterBindingTask(
+        GameObject targetPanel,
+        string mainScriptClassName,
+        string mainScriptPath,
+        string bindingsDataPath,
+        bool autoOpenGeneratedScripts)
+    {
         if (targetPanel == null || string.IsNullOrEmpty(mainScriptClassName))
         {
             Debug.LogWarning("UIAutoBinder: 无效的绑定任务参数");
@@ -80,7 +100,8 @@ public static class UIAutoBinder
             targetPanelPathInScene = UIPanelBindings.GetGameObjectFullPath(targetPanel),
             mainScriptPath = mainScriptPath,
             mainScriptClassName = mainScriptClassName,
-            bindingsDataPath = bindingsDataPath
+            bindingsDataPath = bindingsDataPath,
+            autoOpenGeneratedScripts = autoOpenGeneratedScripts
         };
 
         bindingTask = task;
@@ -244,13 +265,15 @@ public static class UIAutoBinder
                 Type type = Type.GetType(binding.assemblyQualifiedName);
                 if (binding.targetObjectRelativePath == "[ROOT]")
                 {
-                    property.objectReferenceValue = binding.IsGameObjectBinding() ? targetPanel : targetPanel.GetComponent(type);
+                    property.objectReferenceValue = binding.IsGameObjectBinding()
+                        ? (UnityEngine.Object)targetPanel
+                        : targetPanel.GetComponent(type);
                 }
                 else
                 {
                     Transform targetTransform = targetPanel.transform.Find(binding.targetObjectRelativePath);
                     property.objectReferenceValue = binding.IsGameObjectBinding()
-                        ? (targetTransform != null ? targetTransform.gameObject : null)
+                        ? (UnityEngine.Object)(targetTransform != null ? targetTransform.gameObject : null)
                         : (targetTransform != null ? targetTransform.GetComponent(type) : null);
                 }
             }
@@ -265,8 +288,7 @@ public static class UIAutoBinder
         AssetDatabase.SaveAssets();
 
         // 检查是否需要自动打开生成的脚本
-        var currentSettings = UIBindDataManager.GetCurrentSettingsItem();
-        if (currentSettings != null && currentSettings.autoOpenGeneratedScripts)
+        if (bindingTask.autoOpenGeneratedScripts)
         {
             // 打开主脚本
             if (!string.IsNullOrEmpty(bindingTask.mainScriptPath) && File.Exists(bindingTask.mainScriptPath))

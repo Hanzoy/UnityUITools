@@ -181,12 +181,17 @@ UIBindSpecConverter.ExportAssetToJson(
 {
   "version": 1,
   "assetPath": "Assets/UIBindData/LoginPanel.asset",
+  "settingsDataName": "Panel",
   "registerAutoBinder": true,
   "status": "pending"
 }
 ```
 
 成功后请求会写回 `bindingScriptPath`、`mainScriptPath` 和 `mainScriptClassName`。
+
+`settingsDataName` 为必填项，必须精确匹配 `Assets/Settings/UIBindToolSettingsData.asset` 中的配置名。文件请求不会读取工具窗口的 `lastSelectedSettingsDataName`；缺失或名称错误时会直接失败并返回可用配置名，避免把 Panel 按 Popup 配置生成。
+
+`Assets/UIBindRequests` 下的请求 JSON 是临时控制文件。Agent 读取到 `completed`/`failed` 并记录结果后，应删除请求文件及对应 `.meta`。一次性流程中新建的 `*.ui-tree.json`、`*.uibind.json` 也应在成功验证后清理；已有文件、生成脚本和 `UIPanelBindings.asset` 保留。
 
 ### 3.3 Agent 使用工具绑定 UI 的整体链路
 
@@ -209,6 +214,8 @@ Prefab
 - `*.Bind.cs`：代码生成结果，由现有绑定生成器更新。
 
 Agent 绑定时应优先编辑 `*.uibind.json`，再通过 `UIBindSpecConverter` 同步到 `.asset`，不要直接修改 `.asset`。
+
+生成代码前，Agent 还必须根据 UI 类型显式选择配置项，并把精确的 `settingsDataName` 写入生成请求。配置项决定绑定数据目录、脚本输出目录、模板、命名空间和基类；不能继承用户上次在工具窗口中选择的模式。
 
 ### 4. 配置生成参数
 

@@ -52,6 +52,27 @@ public class UIBindDataManager
     }
 
     /// <summary>
+    /// 按名称获取设置项，不改变编辑器窗口当前选中的设置。
+    /// </summary>
+    public static UIBindToolSettingsDataItem GetSettingsItemByName(string settingsDataName)
+    {
+        if (s_SettingsDataContainer == null || string.IsNullOrWhiteSpace(settingsDataName))
+            return null;
+
+        return s_SettingsDataContainer.GetSettingsDataItemByName(settingsDataName.Trim());
+    }
+
+    /// <summary>
+    /// 获取所有可用的设置项名称。
+    /// </summary>
+    public static string[] GetAllSettingsDataNames()
+    {
+        return s_SettingsDataContainer != null
+            ? s_SettingsDataContainer.GetAllSettingsDataNames()
+            : new string[0];
+    }
+
+    /// <summary>
     /// 获取绑定数据文件夹路径
     /// </summary>
     private static string GetBindDataFolder()

@@ -127,12 +127,25 @@ public static class UIBindScriptGenerator
     /// <returns>生成结果</returns>
     public static GenerationResult GenerateScripts(UIPanelBindings bindings)
     {
+        return GenerateScripts(bindings, UIBindDataManager.GetCurrentSettingsItem());
+    }
+
+    /// <summary>
+    /// 使用指定设置项生成 UI 绑定脚本，不依赖或修改编辑器窗口当前选择。
+    /// </summary>
+    /// <param name="bindings">绑定数据</param>
+    /// <param name="settings">本次生成使用的设置项</param>
+    /// <returns>生成结果</returns>
+    public static GenerationResult GenerateScripts(
+        UIPanelBindings bindings,
+        UIBindToolSettingsDataItem settings)
+    {
         var result = new GenerationResult { success = false };
 
         try
         {
             // 1. 加载配置
-            var config = LoadGenerationConfig();
+            var config = LoadGenerationConfig(settings);
             if (config == null)
             {
                 result.errorMessage = "无法加载生成配置";
@@ -176,12 +189,21 @@ public static class UIBindScriptGenerator
     /// <returns>配置对象</returns>
     public static GenerationConfig LoadGenerationConfig()
     {
-        var settings = UIBindDataManager.GetCurrentSettingsItem();
+        return LoadGenerationConfig(UIBindDataManager.GetCurrentSettingsItem());
+    }
+
+    /// <summary>
+    /// 从指定设置项加载生成配置。
+    /// </summary>
+    public static GenerationConfig LoadGenerationConfig(UIBindToolSettingsDataItem settings)
+    {
         if (settings == null)
         {
-            Debug.LogError("当前没有选中的设置项");
+            Debug.LogError("没有指定可用的设置项");
             return null;
         }
+
+        settings.UpdateInfoFormTemplateTextFile();
 
         var config = new GenerationConfig
         {
